@@ -36,6 +36,8 @@ from binfilepy import BinFile
 from binfilepy import CFWBINARY
 from binfilepy import CFWBCHANNEL
 from binfilepy import constant
+from vitalfilepy import VitalFile
+from vitalfilepy import VITALBINARY
 import xml.etree.ElementTree as ET
 import base64
 from array import array
@@ -44,6 +46,9 @@ import math
 from typing import List
 from typing import Dict
 from typing import Any
+
+MIN_DOUBLE_VALUE = -1.7e+308
+MAX_DOUBLE_VALUE = 1.7e+308
 
 
 class XmlConverterForBedMaster:
@@ -150,6 +155,26 @@ class XmlConverterForBedMaster:
         firstBinFile = True
         firstMeasurement = True
 
+        # array of parName, startTm, vitalFileOut, filename
+        startVitalTm = datetime.datetime.min
+        vitalFileInfoArr = []
+        vitalParName2Info = {}
+
+        # progress
+        if (x.lastVitalFileInfoArr is not None) and (len(x.lastVitalFileInfoArr) > 0):
+            for vinfo in x.lastVitalFileInfoArr:
+                vs_parameter = vinfo["par"]
+                vs_startTm = vinfo["startTm"]
+                vitalFilename = vinfo["filename"]
+                vitalFileOut = VitalFile(vitalFilename, "r+")
+                vitalFileOut.open()
+                vitalFileInfo = {"par": vs_parameter, "startTm": startVitalTm, "vitalFileOut": vitalFileOut, "filename": vitalFilename}
+                vitalFileInfoArr.append(vitalFileInfo)
+                vitalParName2Info[vs_parameter] = vitalFileInfo
+
+        xml_unit = ""
+        xml_bed = ""
+
         infilePath = Path(xmlFile)
         if not infilePath.exists():
             raise XmlConverterError("Cannot open file: {0}".format(xmlFile))
@@ -186,6 +211,12 @@ class XmlConverterForBedMaster:
             # print("root tag = {0}".format(root.tag))
             if root.tag == "BedMasterEx":
                 for child1 in root:
+                    if child1.tag == "FileInfo":
+                        for child3 in child1:
+                            if child3.tag == "Unit":
+                                xml_unit = child3.text
+                            elif child3.tag == "Bed":
+                                xml_bed = child3.text
                     if child1.tag == "Segment":
                         for child3 in child1:
                             if child3.tag == "Waveforms":
@@ -296,6 +327,63 @@ class XmlConverterForBedMaster:
                                     binFileOut.updateSamplesPerChannel(numSamples, True)
                                 # end-if firstBinFile
                             # end-if "measurement"
+                            if child3.tag == "VitalSigns":
+                                collectionTime, collectionTimeUTC = self.processVitalSigns(child3)
+                                collectionTimeDt = parsetime(collectionTime)
+                                vs_parameter = ""
+                                vs_time = ""
+                                vs_value = ""
+                                vs_uom = ""
+                                vs_alarmLimitLow = ""
+                                vs_alarmLimitHigh = ""
+                                for child4 in child3:
+                                    if (child4.tag == "VitalSign"):
+                                        vs_parameter, vs_time, vs_value, vs_uom, vs_alarmLimitLow, vs_alarmLimitHigh = self.processVitalSign(child4)
+                                        # print(vs_parameter)
+                                if (vs_parameter is not None) and len(vs_parameter) > 0:
+                                    vitalFileInfo = None
+                                    if vs_parameter in vitalParName2Info:
+                                        vitalFileInfo = vitalParName2Info.get(vs_parameter)
+                                    else:
+                                        vs_time_dt = parsetime(vs_time)
+                                        fmt = self.outputFnTimeFormatDict.get("starttime", None) if (self.outputFnTimeFormatDict is not None) else None
+                                        tagsDict["starttime"] = dtTimestampFormat(vs_time_dt, fmt)
+                                        fmt = self.outputFnTimeFormatDict.get("exetime", None) if (self.outputFnTimeFormatDict is not None) else None
+                                        tagsDict["exetime"] = dtTimestampFormat(x.timestampTm, fmt)
+                                        # we do not know the end at this point
+                                        tagsDict["endtime"] = "0000" # "tempendtime" + str(random.randint(10000, 100000))
+                                        # array of parName, startTm, vitalFileOut, filename
+                                        vitalFilename = getOutputFilename(self.outputDir, self.outputFnPattern + "_" + vs_parameter, tagsDict, "vital")
+                                        vitalFileOut = VitalFile(vitalFilename, "w")
+                                        vitalFileOut.open()
+                                        if startVitalTm == datetime.datetime.min:
+                                            startVitalTm = vs_time_dt
+                                        vitalFileInfo = {"par": vs_parameter, "startTm": startVitalTm, "vitalFileOut": vitalFileOut, "filename": vitalFilename}
+                                        vitalFileInfoArr.append(vitalFileInfo)
+                                        vitalParName2Info[vs_parameter] = vitalFileInfo
+                                        vs_header = VITALBINARY(vs_parameter, vs_uom, xml_unit, xml_bed)
+                                        vitalFileOut.setHeader(vs_header)
+                                        vitalFileOut.writeHeader()
+                                    if vitalFileInfo is not None:
+                                        vs_value_num = MIN_DOUBLE_VALUE
+                                        try:
+                                            vs_value_num = float(vs_value)
+                                        except:
+                                            pass
+                                        vs_time_dt = parsetime(vs_time)
+                                        vs_offset_num = (vs_time_dt - vitalFileInfo["startTm"]).total_seconds()
+                                        vs_low_num = MIN_DOUBLE_VALUE
+                                        try:
+                                            vs_low_num = float(vs_alarmLimitLow)
+                                        except:
+                                            pass
+                                        vs_high_num = MIN_DOUBLE_VALUE
+                                        try:
+                                            vs_high_num = float(vs_alarmLimitHigh)
+                                        except:
+                                            pass
+                                        vitalFileOut = vitalFileInfo["vitalFileOut"]
+                                        vitalFileOut.writeVitalData(vs_value_num, vs_offset_num, vs_low_num, vs_high_num)
                 # end-for child1
             # end-if root
         # end-if
@@ -307,6 +395,13 @@ class XmlConverterForBedMaster:
             if not (x.lastBinFilename in self.outputFileSet):
                 self.outputFileSet.add(x.lastBinFilename)
                 self.outputFileList.append(x.lastBinFilename)
+        for vf in vitalFileInfoArr:
+            vitalFileOut = vf["vitalFileOut"]
+            if vitalFileOut is not None:
+                vitalFileOut.close()
+                vf["vitalFileOut"] = None
+            x.addOrUpdateLastVitalFileInfo(vf["par"], vf["startTm"], vf["filename"])
+
         return totalNumSamplesWritten
 
     def renameChannels(self, print_rename_details: bool = False):
@@ -372,6 +467,37 @@ class XmlConverterForBedMaster:
             a[i] = int(v)
             i += 1
         return a
+
+    def processVitalSigns(self, e: object):
+        collectionTime = e.attrib.get("CollectionTime", "")
+        collectionTimeUTC = e.attrib.get("CollectionTimeUTC", "")
+        return collectionTime, collectionTimeUTC
+
+    def processVitalSign(self, e: object):
+        vs_parameter = ""
+        vs_time = ""
+        vs_value = ""
+        vs_uom = ""
+        vs_alarmLimitLow = ""
+        vs_alarmLimitHigh = ""
+        for child in e:
+            if child.tag == "Parameter":
+                if child.text is not None:
+                    vs_parameter = child.text
+            elif child.tag == "Time":
+                if child.text is not None:
+                    vs_time = child.text
+            elif child.tag == "Value":
+                if child.text is not None:
+                    vs_value = child.text
+                vs_uom = child.attrib.get("UOM", "")
+            elif child.tag == "AlarmLimitLow":
+                if child.text is not None:
+                    vs_alarmLimitLow = child.text
+            elif child.tag == "AlarmLimitHigh":
+                if child.text is not None:
+                    vs_alarmLimitHigh = child.text
+        return vs_parameter, vs_time, vs_value, vs_uom, vs_alarmLimitLow, vs_alarmLimitHigh
 
     def moveTempChanLabel(self, chanLabelArr: List[str], tempChanLabelArr: List[str]):
         chanLabelArr.clear()
