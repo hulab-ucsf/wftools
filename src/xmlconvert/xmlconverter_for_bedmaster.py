@@ -351,7 +351,7 @@ class XmlConverterForBedMaster:
                                         fmt = self.outputFnTimeFormatDict.get("exetime", None) if (self.outputFnTimeFormatDict is not None) else None
                                         tagsDict["exetime"] = dtTimestampFormat(x.timestampTm, fmt)
                                         # we do not know the end at this point
-                                        tagsDict["endtime"] = "0000" # "tempendtime" + str(random.randint(10000, 100000))
+                                        tagsDict["endtime"] = "0000"  # "tempendtime" + str(random.randint(10000, 100000))
                                         # array of parName, startTm, vitalFileOut, filename
                                         vitalFilename = getOutputFilename(self.outputDir, self.outputFnPattern + "_" + vs_parameter, tagsDict, "vital")
                                         vitalFileOut = VitalFile(vitalFilename, "w")
