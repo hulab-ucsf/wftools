@@ -47,8 +47,8 @@ from typing import List
 from typing import Dict
 from typing import Any
 
-MIN_DOUBLE_VALUE = -1.7e+308
-MAX_DOUBLE_VALUE = 1.7e+308
+DEFAULT_VS_LIMIT_LOW = -999999
+DEFAULT_VS_LIMIT_HIGH = 999999
 
 
 class XmlConverterForBedMaster:
@@ -365,19 +365,19 @@ class XmlConverterForBedMaster:
                                         vitalFileOut.setHeader(vs_header)
                                         vitalFileOut.writeHeader()
                                     if vitalFileInfo is not None:
-                                        vs_value_num = MIN_DOUBLE_VALUE
+                                        vs_value_num = DEFAULT_VS_LIMIT_LOW
                                         try:
                                             vs_value_num = float(vs_value)
                                         except:
                                             pass
                                         vs_time_dt = parsetime(vs_time)
                                         vs_offset_num = (vs_time_dt - vitalFileInfo["startTm"]).total_seconds()
-                                        vs_low_num = MIN_DOUBLE_VALUE
+                                        vs_low_num = DEFAULT_VS_LIMIT_LOW
                                         try:
                                             vs_low_num = float(vs_alarmLimitLow)
                                         except:
                                             pass
-                                        vs_high_num = MIN_DOUBLE_VALUE
+                                        vs_high_num = DEFAULT_VS_LIMIT_HIGH
                                         try:
                                             vs_high_num = float(vs_alarmLimitHigh)
                                         except:
