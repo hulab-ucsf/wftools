@@ -187,20 +187,33 @@ class XmlConverterForGE:
             if root.tag == "cpcArchive":
                 for child1 in root:
                     if child1.tag == "cpc":
+                        cpc_datetime, cpc_tzoffset = self.processCpc(child1)
                         for child2 in child1:
                             if child2.tag == "device":
                                 for child3 in child2:
                                     if child3.tag == "measurements":
                                         pollTime, tz_offset = self.processMeassurement(child3)
                                         pollTimeDt = parsetime(pollTime.replace('T', ' ').replace('Z', ''))
-                                        tempChanInfo = []
-                                        tempChanLabel = []
-                                        tempChanLabel2Index = {}
-                                        if self.header is None:
-                                            self.headerStartDt = pollTimeDt
-                                            self.header = CFWBINARY()
-                                            self.header.setValue(1.0 / self.defaultSamplesPerSec, pollTimeDt.year, pollTimeDt.month,
-                                                                 pollTimeDt.day, pollTimeDt.hour, pollTimeDt.minute, pollTimeDt.second, 0, 0)
+                                        if pollTimeDt is None:
+                                            # use cpc_datetime if measurement does not have PollTime
+                                            cpc_dt1 = cpc_datetime
+                                            cpc_dt_parts = cpc_dt1.split('.', 2)
+                                            if len(cpc_dt_parts) > 1:
+                                                cpc_dt1 = cpc_dt_parts[0]
+                                            pollTimeDt = parsetime(cpc_dt1.replace('T', ' ').replace('Z', ''))
+                                        # if still cannot get a valid PollTime
+                                        # just skip for now... maybe need to print warning
+                                        if pollTimeDt is None:
+                                            continue
+                                        else:
+                                            tempChanInfo = []
+                                            tempChanLabel = []
+                                            tempChanLabel2Index = {}
+                                            if self.header is None:
+                                                self.headerStartDt = pollTimeDt
+                                                self.header = CFWBINARY()
+                                                self.header.setValue(1.0 / self.defaultSamplesPerSec, pollTimeDt.year, pollTimeDt.month,
+                                                                     pollTimeDt.day, pollTimeDt.hour, pollTimeDt.minute, pollTimeDt.second, 0, 0)
                                         # print(pollTime, tz_offset)
                                         idx = 0
                                         for child4 in child3:
@@ -290,7 +303,10 @@ class XmlConverterForGE:
                                             else:
                                                 gapInSec = 0
                                             if self.warningOnGaps and (gapInSec != 0):
-                                                print("Measurement POLLTIME: {0} shows gap (or overlap) = {1} secs".format(pollTime, gapInSec))
+                                                if pollTime is None or len(pollTime) == 0:
+                                                    print("cpc datetime: {0} shows gap (or overlap) = {1} secs".format(cpc_datetime, gapInSec))
+                                                else:
+                                                    print("Measurement POLLTIME: {0} shows gap (or overlap) = {1} secs".format(pollTime, gapInSec))
                                             firstMeasurement = False
                                             numSamplesWritten = binFileOut.writeChannelData(chanData, self.defaultSamplesPerSec, gapInSec)
                                             totalNumSamplesWritten += numSamplesWritten
@@ -354,6 +370,15 @@ class XmlConverterForGE:
                 if print_rename_details:
                     print("No output files's channel labels need to be changed.")
         # end-if
+
+    def processCpc(self, e: object):
+        cpc_datetime = ""
+        cpc_tzoffset = ""
+        if e.attrib["datetime"] is not None:
+            cpc_datetime = e.attrib["datetime"]
+        if e.attrib["tzoffset"] is not None:
+            cpc_tzoffset = e.attrib["tzoffset"]
+            return cpc_datetime, cpc_tzoffset
 
     def processMeassurement(self, e: object):
         pollTime = ""

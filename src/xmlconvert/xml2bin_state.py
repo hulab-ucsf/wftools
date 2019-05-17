@@ -29,36 +29,49 @@ from myutil import parsetime
 
 class Xml2BinState:
     lastBinFilename = ""
-    numVitalsignTypes = 0
-    vitalsignName = []
-    lastVitalFilename = []
-    startVitalTm = []
+    # array of parName, startTm, filename
+    lastVitalFileInfoArr = []
+    vitalParName2LastVitalFileInfo = {}
     xmlStartTm = None
     xmlEndTm = None
     timestampTm = ""
 
     def __init__(self):
         self.lastBinFilename = ""
-        self.numVitalsignTypes = 0
-        self.vitalsignName = []
-        self.lastVitalFilename = []
-        self.startVitalTm = []
+        self.lastVitalFileInfoArr = []
+        self.vitalParName2LastVitalFileInfo = {}
         self.xmlStartTm = None
         self.xmlEndTm = None
         self.timestampTm = None
 
     def freeXmlBinState(self):
         self.lastBinFilename = ""
-        self.numVitalsignTypes = 0
-        self.vitalsignName = []
-        self.lastVitalFilename = []
-        self.startVitalTm = []
+        self.lastVitalFileInfoArr = []
+        self.vitalParName2LastVitalFileInfo = {}
         self.xmlStartTm = None
         self.xmlEndTm = None
         self.timestampTm = None
 
     def setLastBinFilename(self, fn: str):
         self.lastBinFilename = fn
+
+    def addOrUpdateLastVitalFileInfo(self, par: str, startTm: datetime.datetime, filename: str):
+        if not (par in self.vitalParName2LastVitalFileInfo):
+            vitalFileInfo = {"par": par, "startTm": startTm, "filename": filename}
+            self.lastVitalFileInfoArr.append(vitalFileInfo)
+            self.vitalParName2LastVitalFileInfo[par] = vitalFileInfo
+        else:
+            vitalFileInfo = self.vitalParName2LastVitalFileInfo[par]
+            vitalFileInfo["startTm"] = startTm
+            vitalFileInfo["filename"] = filename
+
+    def isParInLastVitalFileInfo(self, par: str):
+        return par in self.vitalParName2LastVitalFileInfo
+
+    def getLastVitalFileInfo(self, par: str):
+        if par in self.vitalParName2LastVitalFileInfo:
+            return self.vitalParName2LastVitalFileInfo[par]
+        return None
 
     def setTimestampTm(self, timestamp: object):
         if isinstance(timestamp, str):

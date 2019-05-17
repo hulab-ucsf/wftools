@@ -27,17 +27,19 @@ import sys
 import re
 import yaml
 import argparse
-import datetime
+from datetime import datetime
+from datetime import timedelta
 from pathlib import Path
 from myutil import dtFormat
 from myutil import dtTimestampFormat
 from myutil import elapsedFormat
+from myutil import parsetime
 from xmlconvert import Xml2BinState
 from xmlconvert import XmlConverterForGE
 from xmlconvert import XmlConverterForBedMaster
 from typing import Dict
 
-g_version = "0.5"
+g_version = "0.6"
 g_exename = "wfconvert"
 default_config_fn = "{0}_config.yaml".format(g_exename)
 default_sampling_rate = 240
@@ -52,6 +54,8 @@ def getArgs():
     parser.add_argument("-c", "--config_file", help="configuration file")
     parser.add_argument("-s", "--sampling_rate", help="Target sampling rate")
     parser.add_argument("-p", "--channel_patterns", help="comma separated regex pattern for channels")
+    parser.add_argument("--stime", help="specify start time, format: \"1/1/2019 8:00:00 AM\"")
+    parser.add_argument("--etime", help="specify start time, format: \"1/1/2019 12:00:00 PM\"")
     # use store_const, instead of store_true, so that default value is None (instead of False)
     parser.add_argument("--ignore_gap", help="ignore gap or overlap within a source file", action="store_const", const=False)
     parser.add_argument("--ignore_gap_between_segs", help="ignore gap or overlap between segments (or xml files)", action="store_const", const=False)
@@ -90,22 +94,27 @@ def getTempDir():
     return tempDir
 
 
-def execute_ext(ext_exe: str, srcFn: str, cmdParam: str, xmlOutputFn: str, startSegment: int, endSegment: int):
+def execute_ext(ext_exe: str, srcFn: str, cmdParam: str, xmlOutputFn: str, startSegment: int, endSegment: int, stime: datetime, etime: datetime):
     tempDir = getTempDir()
     if not os.path.exists(tempDir):
         os.mkdir(tempDir)
     xmlOutputFullFn = Path(tempDir).joinpath(xmlOutputFn)
     cmd = "{0} {1} -o {2} {3}".format(ext_exe, srcFn, xmlOutputFullFn, cmdParam)
-    if startSegment >= 0:
-        cmd = cmd + " -s {0}".format(int(startSegment))
-    if endSegment >= 0:
-        cmd = cmd + " -e {0}".format(int(endSegment))
+    if (stime is not None) and (etime is not None):
+        cmd = cmd + " -stime \"{0}\"".format(stime.strftime("%m/%d/%Y %I:%M:%S %p"))
+        cmd = cmd + " -etime \"{0}\"".format(etime.strftime("%m/%d/%Y %I:%M:%S %p"))
+    else:
+        if startSegment >= 0:
+            cmd = cmd + " -s {0}".format(int(startSegment))
+        if endSegment >= 0:
+            cmd = cmd + " -e {0}".format(int(endSegment))
+    print("execute: {0}".format(cmd))
     os.system(cmd)
     return xmlOutputFullFn
 
 
 def runApp(flow: str, srcFile: str, srcDir: str, dstDir: str):
-    timestampTm = datetime.datetime.now()
+    timestampTm = datetime.now()
     tagsDict = {"id1": g_id1, "id2": g_id2, "id3": g_id3, "id4": g_id4, "id5": g_id5}
     xmlconverter = None
 
@@ -170,25 +179,41 @@ def runApp(flow: str, srcFile: str, srcDir: str, dstDir: str):
             print("ERROR: stptools_exe option not set!")
             return 1
         hasSegments = True
-        while hasSegments:
+        if (g_stime is not None) and (g_etime is not None):
+            useTime = True
+        time_step = timedelta(days=1)
+        current_stime = g_stime
+        current_etime = g_stime + time_step
+        if current_etime > g_etime:
+            current_etime = g_etime
+        while ((not useTime) and hasSegments) or (useTime and (current_stime < g_etime) and (current_stime < current_etime)):
             basefn = Path(srcFile).stem
             xmlOutputFn = "{0}_{1}_{2}_wf.xml".format(basefn, dtTimestampFormat(timestampTm), startSegment)
-            xmlOutputFullFn = execute_ext(ext_exe, srcFile, ext_param, xmlOutputFn, startSegment, endSegment)
-            xmlProcesingStarttime = datetime.datetime.now()
-            print("Processing XML from segment {0} to segment {1}...".format(startSegment, endSegment))
-            xmlconverter.clearState()
-            numSamplesWritten = xmlconverter.convert(xmlOutputFullFn, tagsDict, xml2BinState, print_processing_fn=True)
-            xmlProcessingEndtime = datetime.datetime.now()
-            xmlProcessingElapsedtime = xmlProcessingEndtime - xmlProcesingStarttime
-            if numSamplesWritten == 0:
-                print("No more data segments for processing.")
-            print("Processing XML takes {0}".format(elapsedFormat(xmlProcessingElapsedtime.total_seconds(), totalSecondsOnly=True)))
-            if not keep_temp_file:
-                os.remove(xmlOutputFullFn)
+            xmlOutputFullFn = execute_ext(ext_exe, srcFile, ext_param, xmlOutputFn, startSegment, endSegment, current_stime, current_etime)
+            xmlProcesingStarttime = datetime.now()
+            if Path(xmlOutputFullFn).exists():
+                if not useTime:
+                    print("Processing XML from segment {0} to segment {1}...".format(startSegment, endSegment))
+                else:
+                    print("Processing XML from {0} to {1}...".format(current_stime.strftime("%m/%d/%Y %I:%M:%S %p"), current_etime.strftime("%m/%d/%Y %I:%M:%S %p")))
+                xmlconverter.clearState()
+                numSamplesWritten = xmlconverter.convert(xmlOutputFullFn, tagsDict, xml2BinState, print_processing_fn=True)
+                xmlProcessingEndtime = datetime.now()
+                xmlProcessingElapsedtime = xmlProcessingEndtime - xmlProcesingStarttime
+                if numSamplesWritten == 0:
+                    print("No more data segments for processing.")
+                print("Processing XML takes {0}".format(elapsedFormat(xmlProcessingElapsedtime.total_seconds(), totalSecondsOnly=True)))
+                if not keep_temp_file:
+                    os.remove(xmlOutputFullFn)
             startSegment = endSegment + 1
             endSegment = startSegment + numSegmentsPerBatch - 1
             numSegmentsProcessed += numSegmentsPerBatch
             hasSegments = (numSamplesWritten > 0)
+            if useTime:
+                current_stime = current_etime
+                current_etime = current_stime + time_step
+                if current_etime > g_etime:
+                    current_etime = g_etime
         xmlconverter.renameChannels(print_rename_details=True)
         print("Done")
 
@@ -219,6 +244,12 @@ g_channel_info_list = None
 g_ignore_gap = False
 g_ignore_gap_between_segs = False
 g_warning_on_gaps = False
+g_stime = None
+g_etime = None
+if args.stime is not None:
+    g_stime = parsetime(args.stime)
+if args.etime is not None:
+    g_etime = parsetime(args.etime)
 g_id1 = args.id1 if args.id1 is not None else ""
 g_id2 = args.id2 if args.id2 is not None else ""
 g_id3 = args.id3 if args.id3 is not None else ""
@@ -307,13 +338,13 @@ if valid and (not (os.path.exists(g_output_dir))):
 
 
 if valid:
-    starttime = datetime.datetime.now()
+    starttime = datetime.now()
     print("Start processing at: {0}".format(dtFormat(starttime)))
     printOptions()
     result = runApp(flow, g_file, g_dir, g_output_dir)
     if result is not None and result != 0:
         print("Error during processing!")
-    endtime = datetime.datetime.now()
+    endtime = datetime.now()
     print("Finished processing at: {0}".format(dtFormat(endtime)))
     elapsedtime = endtime - starttime
     print("Total elapsed time: {0}".format(
