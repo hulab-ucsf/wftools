@@ -28,6 +28,7 @@ import datetime
 from dateutil import parser
 import random
 from .xml2bin_state import Xml2BinState
+from .xmlconverter import XmlConverterError
 from .fixsampling import fixsamplingarr
 from myutil import parsetime
 from myutil import dtTimestampFormat
@@ -340,50 +341,50 @@ class XmlConverterForBedMaster:
                                     if (child4.tag == "VitalSign"):
                                         vs_parameter, vs_time, vs_value, vs_uom, vs_alarmLimitLow, vs_alarmLimitHigh = self.processVitalSign(child4)
                                         # print(vs_parameter)
-                                if (vs_parameter is not None) and len(vs_parameter) > 0:
-                                    vitalFileInfo = None
-                                    if vs_parameter in vitalParName2Info:
-                                        vitalFileInfo = vitalParName2Info.get(vs_parameter)
-                                    else:
-                                        vs_time_dt = parsetime(vs_time)
-                                        fmt = self.outputFnTimeFormatDict.get("starttime", None) if (self.outputFnTimeFormatDict is not None) else None
-                                        tagsDict["starttime"] = dtTimestampFormat(vs_time_dt, fmt)
-                                        fmt = self.outputFnTimeFormatDict.get("exetime", None) if (self.outputFnTimeFormatDict is not None) else None
-                                        tagsDict["exetime"] = dtTimestampFormat(x.timestampTm, fmt)
-                                        # we do not know the end at this point
-                                        tagsDict["endtime"] = "0000"  # "tempendtime" + str(random.randint(10000, 100000))
-                                        # array of parName, startTm, vitalFileOut, filename
-                                        vitalFilename = getOutputFilename(self.outputDir, self.outputFnPattern + "_" + vs_parameter, tagsDict, "vital")
-                                        vitalFileOut = VitalFile(vitalFilename, "w")
-                                        vitalFileOut.open()
-                                        if startVitalTm == datetime.datetime.min:
-                                            startVitalTm = vs_time_dt
-                                        vitalFileInfo = {"par": vs_parameter, "startTm": startVitalTm, "vitalFileOut": vitalFileOut, "filename": vitalFilename}
-                                        vitalFileInfoArr.append(vitalFileInfo)
-                                        vitalParName2Info[vs_parameter] = vitalFileInfo
-                                        vs_header = VITALBINARY(vs_parameter, vs_uom, xml_unit, xml_bed)
-                                        vitalFileOut.setHeader(vs_header)
-                                        vitalFileOut.writeHeader()
-                                    if vitalFileInfo is not None:
-                                        vs_value_num = DEFAULT_VS_LIMIT_LOW
-                                        try:
-                                            vs_value_num = float(vs_value)
-                                        except:
-                                            pass
-                                        vs_time_dt = parsetime(vs_time)
-                                        vs_offset_num = (vs_time_dt - vitalFileInfo["startTm"]).total_seconds()
-                                        vs_low_num = DEFAULT_VS_LIMIT_LOW
-                                        try:
-                                            vs_low_num = float(vs_alarmLimitLow)
-                                        except:
-                                            pass
-                                        vs_high_num = DEFAULT_VS_LIMIT_HIGH
-                                        try:
-                                            vs_high_num = float(vs_alarmLimitHigh)
-                                        except:
-                                            pass
-                                        vitalFileOut = vitalFileInfo["vitalFileOut"]
-                                        vitalFileOut.writeVitalData(vs_value_num, vs_offset_num, vs_low_num, vs_high_num)
+                                    if (vs_parameter is not None) and len(vs_parameter) > 0:
+                                        vitalFileInfo = None
+                                        if vs_parameter in vitalParName2Info:
+                                            vitalFileInfo = vitalParName2Info.get(vs_parameter)
+                                        else:
+                                            vs_time_dt = parsetime(vs_time)
+                                            fmt = self.outputFnTimeFormatDict.get("starttime", None) if (self.outputFnTimeFormatDict is not None) else None
+                                            tagsDict["starttime"] = dtTimestampFormat(vs_time_dt, fmt)
+                                            fmt = self.outputFnTimeFormatDict.get("exetime", None) if (self.outputFnTimeFormatDict is not None) else None
+                                            tagsDict["exetime"] = dtTimestampFormat(x.timestampTm, fmt)
+                                            # we do not know the end at this point
+                                            tagsDict["endtime"] = "0000"  # "tempendtime" + str(random.randint(10000, 100000))
+                                            # array of parName, startTm, vitalFileOut, filename
+                                            vitalFilename = getOutputFilename(self.outputDir, self.outputFnPattern + "_" + vs_parameter, tagsDict, "vital")
+                                            vitalFileOut = VitalFile(vitalFilename, "w")
+                                            vitalFileOut.open()
+                                            if startVitalTm == datetime.datetime.min:
+                                                startVitalTm = vs_time_dt
+                                            vitalFileInfo = {"par": vs_parameter, "startTm": startVitalTm, "vitalFileOut": vitalFileOut, "filename": vitalFilename}
+                                            vitalFileInfoArr.append(vitalFileInfo)
+                                            vitalParName2Info[vs_parameter] = vitalFileInfo
+                                            vs_header = VITALBINARY(vs_parameter, vs_uom, xml_unit, xml_bed)
+                                            vitalFileOut.setHeader(vs_header)
+                                            vitalFileOut.writeHeader()
+                                        if vitalFileInfo is not None:
+                                            vs_value_num = DEFAULT_VS_LIMIT_LOW
+                                            try:
+                                                vs_value_num = float(vs_value)
+                                            except:
+                                                pass
+                                            vs_time_dt = parsetime(vs_time)
+                                            vs_offset_num = (vs_time_dt - vitalFileInfo["startTm"]).total_seconds()
+                                            vs_low_num = DEFAULT_VS_LIMIT_LOW
+                                            try:
+                                                vs_low_num = float(vs_alarmLimitLow)
+                                            except:
+                                                pass
+                                            vs_high_num = DEFAULT_VS_LIMIT_HIGH
+                                            try:
+                                                vs_high_num = float(vs_alarmLimitHigh)
+                                            except:
+                                                pass
+                                            vitalFileOut = vitalFileInfo["vitalFileOut"]
+                                            vitalFileOut.writeVitalData(vs_value_num, vs_offset_num, vs_low_num, vs_high_num)
                 # end-for child1
             # end-if root
         # end-if
