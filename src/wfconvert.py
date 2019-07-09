@@ -179,13 +179,14 @@ def runApp(flow: str, srcFile: str, srcDir: str, dstDir: str):
             print("ERROR: stptools_exe option not set!")
             return 1
         hasSegments = True
-        if (g_stime is not None) and (g_etime is not None):
-            useTime = True
+        useTime = (g_stime is not None) and (g_etime is not None)
         time_step = timedelta(days=1)
         current_stime = g_stime
-        current_etime = g_stime + time_step
-        if current_etime > g_etime:
-            current_etime = g_etime
+        current_etime = g_stime
+        if useTime:
+            current_etime = g_stime + time_step
+            if current_etime > g_etime:
+                current_etime = g_etime
         while ((not useTime) and hasSegments) or (useTime and (current_stime < g_etime) and (current_stime < current_etime)):
             basefn = Path(srcFile).stem
             xmlOutputFn = "{0}_{1}_{2}_wf.xml".format(basefn, dtTimestampFormat(timestampTm), startSegment)
