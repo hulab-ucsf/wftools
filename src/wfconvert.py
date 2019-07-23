@@ -39,7 +39,7 @@ from xmlconvert import XmlConverterForGE
 from xmlconvert import XmlConverterForBedMaster
 from typing import Dict
 
-g_version = "0.61"
+g_version = "0.63"
 g_exename = "wfconvert"
 default_config_fn = "{0}_config.yaml".format(g_exename)
 default_sampling_rate = 240
