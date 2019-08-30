@@ -39,7 +39,7 @@ from xmlconvert import XmlConverterForGE
 from xmlconvert import XmlConverterForBedMaster
 from typing import Dict
 
-g_version = "0.63"
+g_version = "0.65"
 g_exename = "wfconvert"
 default_config_fn = "{0}_config.yaml".format(g_exename)
 default_sampling_rate = 240
@@ -183,6 +183,7 @@ def runApp(flow: str, srcFile: str, srcDir: str, dstDir: str):
         time_step = timedelta(days=1)
         current_stime = g_stime
         current_etime = g_stime
+        numSamplesWritten = 0
         if useTime:
             current_etime = g_stime + time_step
             if current_etime > g_etime:
