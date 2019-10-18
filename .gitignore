@@ -109,6 +109,9 @@ Webdrivers/
 
 .pytest_cache/
 
-# ignoreing test output
+# ignoring test output
 temp_dir/*
 output/*
+
+# ignoring zipped output
+wftools_v*
