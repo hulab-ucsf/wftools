@@ -88,6 +88,9 @@ channel_info_list:
 ```
 
 ## Release Notes
+v0.66
+- Support file path with spaces in BedMaster STP filename
+
 v0.5
 - Fixed bug of not using key "exe_param" in config file
 - Prepare for open source release
