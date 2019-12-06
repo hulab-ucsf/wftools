@@ -1,4 +1,4 @@
-binfilepy==0.1.5
+binfilepy==0.1.7
 numpy==1.16.0
 matplotlib==3.0.3
 vitalfilepy==0.1.2

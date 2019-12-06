@@ -39,7 +39,7 @@ from xmlconvert import XmlConverterForGE
 from xmlconvert import XmlConverterForBedMaster
 from typing import Dict
 
-g_version = "0.65"
+g_version = "0.66"
 g_exename = "wfconvert"
 default_config_fn = "{0}_config.yaml".format(g_exename)
 default_sampling_rate = 240
@@ -99,7 +99,7 @@ def execute_ext(ext_exe: str, srcFn: str, cmdParam: str, xmlOutputFn: str, start
     if not os.path.exists(tempDir):
         os.mkdir(tempDir)
     xmlOutputFullFn = Path(tempDir).joinpath(xmlOutputFn)
-    cmd = "{0} {1} -o {2} {3}".format(ext_exe, srcFn, xmlOutputFullFn, cmdParam)
+    cmd = "{0} \"{1}\" -o \"{2}\" {3}".format(ext_exe, srcFn, xmlOutputFullFn, cmdParam)
     if (stime is not None) and (etime is not None):
         cmd = cmd + " -stime \"{0}\"".format(stime.strftime("%m/%d/%Y %I:%M:%S %p"))
         cmd = cmd + " -etime \"{0}\"".format(etime.strftime("%m/%d/%Y %I:%M:%S %p"))
