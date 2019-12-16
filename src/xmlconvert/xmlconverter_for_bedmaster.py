@@ -362,7 +362,7 @@ class XmlConverterForBedMaster:
                                             vitalFileInfo = {"par": vs_parameter, "startTm": startVitalTm, "vitalFileOut": vitalFileOut, "filename": vitalFilename}
                                             vitalFileInfoArr.append(vitalFileInfo)
                                             vitalParName2Info[vs_parameter] = vitalFileInfo
-                                            vs_header = VITALBINARY(vs_parameter, vs_uom, xml_unit, xml_bed)
+                                            vs_header = VITALBINARY(vs_parameter, vs_uom, xml_unit, xml_bed, collectionTimeDt.year, collectionTimeDt.month, startVitalTm.day, startVitalTm.hour, startVitalTm.minute, startVitalTm.second)
                                             vitalFileOut.setHeader(vs_header)
                                             vitalFileOut.writeHeader()
                                         if vitalFileInfo is not None:
