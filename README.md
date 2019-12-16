@@ -88,6 +88,9 @@ channel_info_list:
 ```
 
 ## Release Notes
+v0.67
+- Fixed timestamp bug for .vital file generation for BedMaster STP file handling
+
 v0.66
 - Support file path with spaces in BedMaster STP filename
 
