@@ -169,7 +169,7 @@ class XmlConverterForBedMaster:
                 vitalFilename = vinfo["filename"]
                 vitalFileOut = VitalFile(vitalFilename, "r+")
                 vitalFileOut.open()
-                vitalFileInfo = {"par": vs_parameter, "startTm": startVitalTm, "vitalFileOut": vitalFileOut, "filename": vitalFilename}
+                vitalFileInfo = {"par": vs_parameter, "startTm": vs_startTm, "vitalFileOut": vitalFileOut, "filename": vitalFilename}
                 vitalFileInfoArr.append(vitalFileInfo)
                 vitalParName2Info[vs_parameter] = vitalFileInfo
 
@@ -357,8 +357,7 @@ class XmlConverterForBedMaster:
                                             vitalFilename = getOutputFilename(self.outputDir, self.outputFnPattern + "_" + vs_parameter, tagsDict, "vital")
                                             vitalFileOut = VitalFile(vitalFilename, "w")
                                             vitalFileOut.open()
-                                            if startVitalTm == datetime.datetime.min:
-                                                startVitalTm = vs_time_dt
+                                            startVitalTm = vs_time_dt
                                             vitalFileInfo = {"par": vs_parameter, "startTm": startVitalTm, "vitalFileOut": vitalFileOut, "filename": vitalFilename}
                                             vitalFileInfoArr.append(vitalFileInfo)
                                             vitalParName2Info[vs_parameter] = vitalFileInfo
