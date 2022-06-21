@@ -1,5 +1,5 @@
 binfilepy==0.1.7
-numpy==1.16.0
+numpy==1.22.0
 matplotlib==3.0.3
 vitalfilepy==0.1.2
 typing==3.6.6
